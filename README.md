@@ -72,3 +72,18 @@ If you want to be used by everyone, just use an empty array
  []
 }
 ```
+### Step 4
+#### Run with docker
+1. `cd Threat-Intelligence-telegram`
+2. `docker build --no-cache -t my_ip_threat .`
+3. `docker run --name ip_threat_check -d my_ip_threat`
+
+Enjoy!
+
+#### Run without docker
+1. `cd Threat-Intelligence-telegram`
+2. `sudo apt install python3-dev python3-venv`
+3. `python3 -m venv venv`
+4. `source venv/bin/activate`
+5. `pip3 install -r requirements.txt`
+6. `python3 run.py`
