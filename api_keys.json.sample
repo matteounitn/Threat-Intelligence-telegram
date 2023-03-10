@@ -1,0 +1,25 @@
+{
+    "abuseipdb":{
+        "api-key":"YOURAPIKEY"
+    },
+    "alien_vault":{
+        "api_key":"YOURAPIKEY"
+    },
+    "greynoise":{
+        "api-key":"YOURAPIKEY"
+    },
+    "ibm_xforce":{
+        "api-key":"YOURAPIKEY",
+        "api-password":"YOURAPIPASSWORD"
+    },
+    "pulsedive":{
+        "api-key":"YOURAPIKEY"
+    },
+    "ip_data_co":{
+        "api-key":"YOURAPIKEY"
+    },
+    "neutrino":{
+        "user-id": "YOURUSERNAME",
+        "api-key": "YOURAPIKEY"
+    }
+}
