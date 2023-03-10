@@ -50,7 +50,8 @@ ibm_xforce_api_key, ibm_xforce_api_password = api_keys['ibm_xforce']['api-key'],
 
 
 def is_admin(user_id):
-    return str(user_id) in admin
+    #we return true if the user is admin or if the array is empty
+    return str(user_id) in admin or not admin
 
 
 def jsonformat(
@@ -397,8 +398,12 @@ def check_ip_reputation(ip):
         f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general",
         headers=headers,
     )
-    
-    otx_info = json.loads(response.text)
+    try:
+        otx_info = json.loads(response.text)
+    except Exception as e:
+        otx_info = {}
+        print(e)
+        print(response.text)
     raw["otx"] = otx_info.copy()
     tags = [tag for pulse in otx_info["pulse_info"]["pulses"] for tag in pulse["tags"]]
     otx_av.append("**OTX Alienvault Tags for this IP:**")
