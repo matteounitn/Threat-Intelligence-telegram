@@ -3,6 +3,7 @@ A bot to quickly get information about an IP, useful to get threat intelligence 
 
 ## Example output
 
+<img src="poc_TI.GIF" alt="poc" style="max-width:400px" />
 
 ## How to
 ### Step 0 
