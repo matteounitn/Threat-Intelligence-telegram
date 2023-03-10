@@ -66,7 +66,7 @@ You can have more than one admin, just treat the admin.json as an array
 ```
 **This lets people use your bot.**
 
-If you want to be used by everyone, just use an empty array 
+If you want it to be used by everyone, just use an empty array 
 ```
 {
  []
