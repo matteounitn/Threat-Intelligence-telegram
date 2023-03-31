@@ -47,12 +47,30 @@ greynoise_api_key = api_keys['greynoise']['api-key']
 ip_data_co_api_key = api_keys['ip_data_co']['api-key']
 abuseipdb_api_key = api_keys['abuseipdb']['api-key']
 ibm_xforce_api_key, ibm_xforce_api_password = api_keys['ibm_xforce']['api-key'], api_keys['ibm_xforce']['api-password']
-
+threatbook_api_key = api_keys['threatbook']['api-key']
 
 def is_admin(user_id):
     #we return true if the user is admin or if the array is empty
     return str(user_id) in admin or not admin
 
+
+def threatbook_io(ip,response_json,response_status_code):
+   
+    out = [f"ThreadBook.io Data for {ip}"]
+    if response_status_code == 200:
+        judgm="\n==> ".join(response_json['data']['summary']['judgments'])
+        #Example output: {"msg":"Success","data":{"summary":{"judgments":["Zombie","Scanner","Spam"],"whitelist":false,"first_seen":"2022-05-13","last_seen":"2023-03-30"},"basic":{"carrier":"DigitalOcean, LLC","location":{"country":"United States","province":"California","city":"San Francisco","lng":"-122.41964","lat":"37.77509","country_code":"US"}},"asn":{"rank":4,"info":"DIGITALOCEAN-ASN, US","number":14061}
+        out.append(f"**Is Whitelisted?** {'Yes' if response_json['data']['summary']['whitelist'] else 'No'}")
+        out.append(f"**First Seen**: {response_json['data']['summary']['first_seen']}")
+        out.append(f"**Last Seen**: {response_json['data']['summary']['last_seen']}")
+        out.append(f"**Summary**:\n==> {judgm}")
+        out.append(f"**Carrier**: {response_json['data']['basic']['carrier']}")
+        out.append(f"**==> Location**: {response_json['data']['basic']['location']['country']}, {response_json['data']['basic']['location']['province']}, {response_json['data']['basic']['location']['city']}")
+        out.append(f"**ASN**: {response_json['data']['asn']['info']}")
+        out.append(f"**==> Rank**: {response_json['data']['asn']['rank']}")
+        out.append(f"**==> Number**: {response_json['data']['asn']['number']}")
+    out.append(f"More information at https://threatbook.io/ip/{ip}")
+    return out
 
 def jsonformat(
     data,
@@ -382,6 +400,17 @@ def check_ip_reputation(ip):
     raw["abuseipdb"] = abuseipdb_info.copy()
     abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
 
+    # threatbook
+    url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
+
+    headers = {"accept": "application/json"}
+
+    response = requests.get(url, headers=headers)
+    response_json = json.loads(response.text)
+    raw["threatbook"] = response_json.copy()
+    threatbook_ti = threatbook_io(ip, response_json, response.status_code)
+
+
     # IBM X-Force Exchange
     
     response = requests.get(
@@ -417,6 +446,7 @@ def check_ip_reputation(ip):
         gn,
         ipdata,
         abuseipdb_ti,
+        threatbook_ti,
         ibmxforce_ti,
         otx_av,
     ], raw

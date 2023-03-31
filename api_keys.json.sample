@@ -21,5 +21,8 @@
     "neutrino":{
         "user-id": "YOURUSERNAME",
         "api-key": "YOURAPIKEY"
+    },
+    "threatbook":{
+        "api-key":"YOURAPI"
     }
 }
