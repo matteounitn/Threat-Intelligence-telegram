@@ -29,6 +29,7 @@ You should register to:
 - https://neutrinoapi.com (user-id and api-key) ((PLEASE DO NOT USE ROOT KEY FOR THIS, create one api-key for the bot)
 - https://exchange.xforce.ibmcloud.com (api-key and api-password)
 - https://threatbook.io (api-key)
+- https://www.virustotal.com (api-key)
 
 **Get api-keys and api-password or user-id when needed.**
 

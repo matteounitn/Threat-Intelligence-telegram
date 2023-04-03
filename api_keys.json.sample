@@ -23,6 +23,9 @@
         "api-key": "YOURAPIKEY"
     },
     "threatbook":{
-        "api-key":"YOURAPI"
+        "api-key":"YOURAPIKEY"
+    },
+    "virustotal":{
+            "api-key":"YOURAPIKEY"
     }
 }

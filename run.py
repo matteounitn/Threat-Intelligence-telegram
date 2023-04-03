@@ -27,50 +27,92 @@ def load_api_keys():
     with open("api_keys.json") as f:
         api_keys = json.load(f)
 
-    assert api_keys['neutrino']['user-id'] and api_keys['neutrino']['api-key'], "Neutrino API keys not found"
-    assert api_keys['alien_vault']['api-key'], "AlienVault API key not found"
-    assert api_keys['pulsedive']['api-key'], "Pulsedive API key not found"
-    assert api_keys['greynoise']['api-key'], "GreyNoise API key not found"
-    assert api_keys['ip_data_co']['api-key'], "IPData.co API key not found"
-    assert api_keys['abuseipdb']['api-key'], "AbuseIPDB API key not found"
-    assert api_keys['ibm_xforce']['api-key'] and api_keys['ibm_xforce']['api-password'], "IBM X-Force API keys not found"
-    
+    assert (
+        api_keys["neutrino"]["user-id"] and api_keys["neutrino"]["api-key"]
+    ), "Neutrino API keys not found"
+    assert api_keys["alien_vault"]["api-key"], "AlienVault API key not found"
+    assert api_keys["pulsedive"]["api-key"], "Pulsedive API key not found"
+    assert api_keys["greynoise"]["api-key"], "GreyNoise API key not found"
+    assert api_keys["ip_data_co"]["api-key"], "IPData.co API key not found"
+    assert api_keys["abuseipdb"]["api-key"], "AbuseIPDB API key not found"
+    assert (
+        api_keys["ibm_xforce"]["api-key"] and api_keys["ibm_xforce"]["api-password"]
+    ), "IBM X-Force API keys not found"
+
     return api_keys
 
-api_keys=load_api_keys()
 
-neutrino_user_id, neutrino_api_key = api_keys['neutrino']['user-id'], api_keys['neutrino']['api-key']
-alien_vault_api_key = api_keys['alien_vault']['api-key']
+api_keys = load_api_keys()
+
+neutrino_user_id, neutrino_api_key = (
+    api_keys["neutrino"]["user-id"],
+    api_keys["neutrino"]["api-key"],
+)
+alien_vault_api_key = api_keys["alien_vault"]["api-key"]
 admin = load_admins()["admin"]
-pulsedive_api_key = api_keys['pulsedive']['api-key']
-greynoise_api_key = api_keys['greynoise']['api-key']
-ip_data_co_api_key = api_keys['ip_data_co']['api-key']
-abuseipdb_api_key = api_keys['abuseipdb']['api-key']
-ibm_xforce_api_key, ibm_xforce_api_password = api_keys['ibm_xforce']['api-key'], api_keys['ibm_xforce']['api-password']
-threatbook_api_key = api_keys['threatbook']['api-key']
+pulsedive_api_key = api_keys["pulsedive"]["api-key"]
+greynoise_api_key = api_keys["greynoise"]["api-key"]
+ip_data_co_api_key = api_keys["ip_data_co"]["api-key"]
+abuseipdb_api_key = api_keys["abuseipdb"]["api-key"]
+ibm_xforce_api_key, ibm_xforce_api_password = (
+    api_keys["ibm_xforce"]["api-key"],
+    api_keys["ibm_xforce"]["api-password"],
+)
+threatbook_api_key = api_keys["threatbook"]["api-key"]
+virustotal_api_key = api_keys["virustotal"]["api-key"]
+
 
 def is_admin(user_id):
-    #we return true if the user is admin or if the array is empty
+    # we return true if the user is admin or if the array is empty
     return str(user_id) in admin or not admin
 
 
-def threatbook_io(ip,response_json,response_status_code):
-   
+def virustotal_ip_lookup(ip, response_json, response_status_code):
+    out = [f"VirusTotal Data for {ip}"]
+    if response_status_code == 200:
+        out.append("**Verbose Message**: " + response_json["verbose_msg"])
+        out.append(f"**ASN**: {response_json['as_owner']} AS{response_json['asn']}")
+        out.append("**Detected URLs**: ")
+        if "detected_urls" in response_json and response_json["detected_urls"]:
+            for i in response_json["detected_urls"]:
+                out.append(f"\t - **URL**: {i['url']}")
+                out.append(f"\t - **Scan Date**: {i['scan_date']}")
+                out.append(f"\t - **Positives**: {i['positives']}/{i['total']}")
+        if (
+            "detected_downloaded_samples" in response_json
+            and response_json["detected_downloaded_samples"]
+        ):
+            out.append("**Detected Downloaded Samples**: ")
+            for i in response_json["detected_downloaded_samples"]:
+                out.append(f"\t - **SHA256**: {i['sha256']}")
+                out.append(f"\t - **Scan Date**: {i['scan_date']}")
+                out.append(f"\t - **Positives**: {i['positives']}/{i['total']}")
+    out.append(
+        f"More information at https://www.virustotal.com/gui/ip-address/{ip}/detection"
+    )
+    return out
+
+
+def threatbook_io(ip, response_json, response_status_code):
     out = [f"ThreadBook.io Data for {ip}"]
     if response_status_code == 200:
-        judgm="\n==> ".join(response_json['data']['summary']['judgments'])
-        #Example output: {"msg":"Success","data":{"summary":{"judgments":["Zombie","Scanner","Spam"],"whitelist":false,"first_seen":"2022-05-13","last_seen":"2023-03-30"},"basic":{"carrier":"DigitalOcean, LLC","location":{"country":"United States","province":"California","city":"San Francisco","lng":"-122.41964","lat":"37.77509","country_code":"US"}},"asn":{"rank":4,"info":"DIGITALOCEAN-ASN, US","number":14061}
-        out.append(f"**Is Whitelisted?** {'Yes' if response_json['data']['summary']['whitelist'] else 'No'}")
+        judgm = "\n\t - ".join(response_json["data"]["summary"]["judgments"])
+        out.append(
+            f"**Is Whitelisted?** {'Yes' if response_json['data']['summary']['whitelist'] else 'No'}"
+        )
         out.append(f"**First Seen**: {response_json['data']['summary']['first_seen']}")
         out.append(f"**Last Seen**: {response_json['data']['summary']['last_seen']}")
-        out.append(f"**Summary**:\n==> {judgm}")
+        out.append(f"**Summary**:\n\t - {judgm}" if judgm else "No summary available")
         out.append(f"**Carrier**: {response_json['data']['basic']['carrier']}")
-        out.append(f"**==> Location**: {response_json['data']['basic']['location']['country']}, {response_json['data']['basic']['location']['province']}, {response_json['data']['basic']['location']['city']}")
+        out.append(
+            f"**\t - Location**: {response_json['data']['basic']['location']['country']}, {response_json['data']['basic']['location']['province']}, {response_json['data']['basic']['location']['city']}"
+        )
         out.append(f"**ASN**: {response_json['data']['asn']['info']}")
-        out.append(f"**==> Rank**: {response_json['data']['asn']['rank']}")
-        out.append(f"**==> Number**: {response_json['data']['asn']['number']}")
+        out.append(f"**\t - Rank**: {response_json['data']['asn']['rank']}")
+        out.append(f"**\t - Number**: {response_json['data']['asn']['number']}")
     out.append(f"More information at https://threatbook.io/ip/{ip}")
     return out
+
 
 def jsonformat(
     data,
@@ -188,26 +230,30 @@ def abuseipdb(ip, response_json, response_status):
                 out.append("```")
     return out
 
+
 def ibmxforce(ip, response_json, response_status):
-    #we parse the history of the IP
+    # we parse the history of the IP
     out = []
     out.append(f"**IBM X-Force TI for {ip}:**")
     if response_status == 200:
-            if "cats" in response_json:
-                out.append(f"**Categories**: {response_json['cats']}")
-            if "history" in response_json:
-                out.append(f"**History**:")
-                #we want to print only the last 5 entries
-                for h in response_json["history"]:
-                    out.append(f"==> ({h['created']}) {h['ip']}:\n== **{h['reason']}**")
-                    out.append(f"====> __{h['reasonDescription']}__")
-                    if "cats" in h and len(h["cats"])>0:
-                        out.append("====> **Categories**:")
-                        for cat in h["cats"]:
-                            out.append(f"======> **{cat}**: {h['cats'][cat]} __({h['categoryDescriptions'][cat]})__")
-                            out.append("")
-                    out.append("")
+        if "cats" in response_json:
+            out.append(f"**Categories**: {response_json['cats']}")
+        if "history" in response_json:
+            out.append(f"**History**:")
+            # we want to print only the last 5 entries
+            for h in response_json["history"]:
+                out.append(f"==> ({h['created']}) {h['ip']}:\n== **{h['reason']}**")
+                out.append(f"====> __{h['reasonDescription']}__")
+                if "cats" in h and len(h["cats"]) > 0:
+                    out.append("====> **Categories**:")
+                    for cat in h["cats"]:
+                        out.append(
+                            f"======> **{cat}**: {h['cats'][cat]} __({h['categoryDescriptions'][cat]})__"
+                        )
+                        out.append("")
+                out.append("")
     return out
+
 
 def ip_data_co(ip, response_json, response_status):
     # Function to check IP reputation using ipdata.co
@@ -293,6 +339,8 @@ def check_ip_reputation(ip):
     ipdata = []
     abuseipdb_ti = []
     ibmxforce_ti = []
+    virustotal_ti = []
+    threatbook_ti = []
     otx_av = []
     gn = []
     raw = {}
@@ -393,12 +441,21 @@ def check_ip_reputation(ip):
     )
     abuseipdb_info = json.loads(response.text)
     # for the raw, we want to crop the verbose report part and keep only the first 3 reports
-    
+
     if "reports" in abuseipdb_info:
         # we crop
         abuseipdb_info["reports"] = abuseipdb_info["reports"][:3]
     raw["abuseipdb"] = abuseipdb_info.copy()
     abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
+
+    # virustotal
+    url = "https://www.virustotal.com/vtapi/v2/ip-address/report"
+    params = {"apikey": virustotal_api_key, "ip": ip}
+
+    response = requests.get(url=url, params=params)
+    response_json = json.loads(response.text)
+    raw["virustotal"] = response_json.copy()
+    virustotal_ti = virustotal_ip_lookup(ip, response_json, response.status_code)
 
     # threatbook
     url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
@@ -410,9 +467,8 @@ def check_ip_reputation(ip):
     raw["threatbook"] = response_json.copy()
     threatbook_ti = threatbook_io(ip, response_json, response.status_code)
 
-
     # IBM X-Force Exchange
-    
+
     response = requests.get(
         "https://api.xforce.ibmcloud.com/ipr/" + ip,
         auth=requests.auth.HTTPBasicAuth(ibm_xforce_api_key, ibm_xforce_api_password),
@@ -446,6 +502,7 @@ def check_ip_reputation(ip):
         gn,
         ipdata,
         abuseipdb_ti,
+        virustotal_ti,
         threatbook_ti,
         ibmxforce_ti,
         otx_av,
