@@ -97,7 +97,7 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
                     if "positives" in i
                     else ""
                 )
-                out.append("-------")
+                out.append("`-------`")
         if (
             "detected_communicating_samples" in response_json
             and response_json["detected_communicating_samples"]
