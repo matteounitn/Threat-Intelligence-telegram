@@ -196,16 +196,29 @@ def threatbook_io(ip, response_json, response_status_code):
         out.append(
             f"**Is Whitelisted?** {'Yes' if response_json['data']['summary']['whitelist'] else 'No'}"
         )
-        out.append(f"**First Seen**: {response_json['data']['summary']['first_seen']}")
-        out.append(f"**Last Seen**: {response_json['data']['summary']['last_seen']}")
+        if "first_seen" in response_json["data"]["summary"]:
+            out.append(
+                f"**First Seen**: {response_json['data']['summary']['first_seen']}"
+            )
+        if "last_seen" in response_json["data"]["summary"]:
+            out.append(
+                f"**Last Seen**: {response_json['data']['summary']['last_seen']}"
+            )
         out.append(f"**Summary**:\n\t - {judgm}" if judgm else "No summary available")
-        out.append(f"**Carrier**: {response_json['data']['basic']['carrier']}")
-        out.append(
-            f"**\t - Location**: {response_json['data']['basic']['location']['country']}, {response_json['data']['basic']['location']['province']}, {response_json['data']['basic']['location']['city']}"
-        )
-        out.append(f"**ASN**: {response_json['data']['asn']['info']}")
-        out.append(f"**\t - Rank**: {response_json['data']['asn']['rank']}")
-        out.append(f"**\t - Number**: {response_json['data']['asn']['number']}")
+        if "basic" in response_json["data"]:
+            if "carrier" in response_json["data"]["basic"]:
+                out.append(f"**Carrier**: {response_json['data']['basic']['carrier']}")
+            if "location" in response_json["data"]["basic"]:
+                out.append(
+                    f"**\t - Location**: {response_json['data']['basic']['location']['country']}, {response_json['data']['basic']['location']['province']}, {response_json['data']['basic']['location']['city']}"
+                )
+        if "asn" in response_json["data"]:
+            if "info" in response_json["data"]["asn"]:
+                out.append(f"**ASN**: {response_json['data']['asn']['info']}")
+            if "rank" in response_json["data"]["asn"]:
+                out.append(f"**\t - Rank**: {response_json['data']['asn']['rank']}")
+            if "number" in response_json["data"]["asn"]:
+                out.append(f"**\t - Number**: {response_json['data']['asn']['number']}")
     out.append(f"More information at https://threatbook.io/ip/{ip}")
     return out
 
@@ -448,8 +461,13 @@ def check_ip_reputation(ip):
     response = requests.get(url=url, params=params)
     response_json = json.loads(response.text)
     raw["virustotal_v2"] = response_json.copy()
-    virustotal_v2_ti = virustotal_v2_ip_lookup(ip, response_json, response.status_code)
-
+    try:
+        virustotal_v2_ti = virustotal_v2_ip_lookup(
+            ip, response_json, response.status_code
+        )
+    except KeyError as k:
+        print(k)
+        virustotal_v2_ti = [f"**KeyError**: {k}"]
     # Check IP against IP blocklist
     response = requests.get(
         "https://neutrinoapi.net/ip-blocklist",
@@ -459,7 +477,11 @@ def check_ip_reputation(ip):
     raw["ip-blocklist"] = blocklist_info.copy()
     if response.status_code == 200:
         ip_blocklist_neut.append(f"**IP address {ip} in IP blocklist:**")
-        ip_blocklist_neut += jsonformat(blocklist_info)
+        try:
+            ip_blocklist_neut += jsonformat(blocklist_info)
+        except KeyError as k:
+            print(k)
+            ip_blocklist_neut += [f"**KeyError**: {k}"]
     else:
         ip_blocklist_neut.append(f"**IP address {ip} in IP blocklist:**")
         ip_blocklist_neut.append(f"**Error**: {response.status_code}")
@@ -484,7 +506,11 @@ def check_ip_reputation(ip):
             dns_blocklist_neut.append(
                 f"\n{i['list-name'] if 'list-name' in i else 'None'}"
             )
-            dns_blocklist_neut += jsonformat(i, prefix="\t - ")
+            try:
+                dns_blocklist_neut += jsonformat(i, prefix="\t - ")
+            except KeyError as k:
+                print(k)
+                dns_blocklist_neut += [f"**KeyError**: {k}"]
     else:  # something went wrong
         raw["host-reputation"] = dns_info.copy()
         dns_blocklist_neut.append(f"**IP address {ip} in DNS blocklist:**")
@@ -518,7 +544,11 @@ def check_ip_reputation(ip):
         base64ip = base64.b64encode(ip.encode("utf-8")).decode("utf-8")
         pulsedive_ti.append(f"https://pulsedive.com/indicator/?ioc={base64ip}")
     else:
-        pulsedive_ti += pulsedive_formatter(response_json)
+        try:
+            pulsedive_ti += pulsedive_formatter(response_json)
+        except KeyError as k:
+            print(k)
+            pulsedive_ti += [f"**KeyError**: {k}"]
     # check greynoise
 
     response = requests.get(
@@ -527,7 +557,11 @@ def check_ip_reputation(ip):
     )
     response_json = json.loads(response.text)
     raw["greynoise"] = response_json.copy()
-    gn = greynoise(ip, response_json, response.status_code)
+    try:
+        gn = greynoise(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        gn = [f"**KeyError**: {k}"]
 
     # ip reputation ipdata eu-api
     params = {"api-key": ip_data_co_api_key}
@@ -537,7 +571,11 @@ def check_ip_reputation(ip):
     )
     response_json = json.loads(response.text)
     raw["ipdata"] = response_json.copy()
-    ipdata = ip_data_co(ip, response_json, response.status_code)
+    try:
+        ipdata = ip_data_co(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        ipdata = [f"**KeyError**: {k}"]
 
     # Check IP against AbuseIPDB
     response = requests.get(
@@ -552,8 +590,11 @@ def check_ip_reputation(ip):
         # we crop
         abuseipdb_info["reports"] = abuseipdb_info["reports"][:3]
     raw["abuseipdb"] = abuseipdb_info.copy()
-    abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
-
+    try:
+        abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
+    except KeyError as k:
+        print(k)
+        abuseipdb_ti = [f"**KeyError**: {k}"]
     # threatbook
     url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
 
@@ -562,8 +603,11 @@ def check_ip_reputation(ip):
     response = requests.get(url, headers=headers)
     response_json = json.loads(response.text)
     raw["threatbook"] = response_json.copy()
-    threatbook_ti = threatbook_io(ip, response_json, response.status_code)
-
+    try:
+        threatbook_ti = threatbook_io(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        threatbook_ti = [f"**KeyError**: {k}"]
     # IBM X-Force Exchange
 
     response = requests.get(
@@ -572,22 +616,30 @@ def check_ip_reputation(ip):
     )
     response_json = json.loads(response.text)
     raw["ibm_xforce"] = response_json.copy()
-    ibmxforce_ti = ibmxforce(ip, response_json, response.status_code)
-
+    try:
+        ibmxforce_ti = ibmxforce(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        ibmxforce_ti = [f"**KeyError**: {k}"]
     # Check OTX Alienvault Tags for this IP
     headers = {"X-OTX-API-KEY": alien_vault_api_key}
     response = requests.get(
         f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general",
         headers=headers,
     )
+    tags = []
     try:
         otx_info = json.loads(response.text)
+
+        tags = [
+            tag for pulse in otx_info["pulse_info"]["pulses"] for tag in pulse["tags"]
+        ]
     except Exception as e:
-        otx_info = {}
+        otx_info = {"error": "Error while parsing response"}
         print(e)
         print(response.text)
+        tags = ["Error while parsing response"]
     raw["otx"] = otx_info.copy()
-    tags = [tag for pulse in otx_info["pulse_info"]["pulses"] for tag in pulse["tags"]]
     otx_av.append("**OTX Alienvault Tags for this IP:**")
     # we want to remove duplicates
     tags = list(set(tags))
@@ -599,8 +651,13 @@ def check_ip_reputation(ip):
     response = requests.get(url=url, headers=headers)
     response_json = json.loads(response.text)
     raw["virustotal_v3"] = response_json.copy()
-    virustotal_v3_ti = virustotal_v3_ip_lookup(ip, response_json, response.status_code)
-
+    try:
+        virustotal_v3_ti = virustotal_v3_ip_lookup(
+            ip, response_json, response.status_code
+        )
+    except KeyError as k:
+        print(k)
+        virustotal_v3_ti = [f"**KeyError**: {k}"]
     return [
         ip_blocklist_neut,
         dns_blocklist_neut,
