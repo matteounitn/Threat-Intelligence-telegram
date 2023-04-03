@@ -67,30 +67,129 @@ def is_admin(user_id):
     return str(user_id) in admin or not admin
 
 
-def virustotal_ip_lookup(ip, response_json, response_status_code):
-    out = [f"VirusTotal Data for {ip}"]
+def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
+    out = [f"VirusTotal v2 Data for {ip}"]
     if response_status_code == 200:
         out.append("**Verbose Message**: " + response_json["verbose_msg"])
         out.append(f"**ASN**: {response_json['as_owner']} AS{response_json['asn']}")
         out.append("**Detected URLs**: ")
         if "detected_urls" in response_json and response_json["detected_urls"]:
             for i in response_json["detected_urls"]:
-                out.append(f"\t - **URL**: {i['url']}")
-                out.append(f"\t - **Scan Date**: {i['scan_date']}")
-                out.append(f"\t - **Positives**: {i['positives']}/{i['total']}")
+                out.append(f"\t - **URL**: {i['url']}" if "url" in i else "")
+                out.append(
+                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
+                )
+                out.append(
+                    f"\t - **Positives**: {i['positives']}/{i['total']}"
+                    if "positives" in i
+                    else ""
+                )
         if (
             "detected_downloaded_samples" in response_json
             and response_json["detected_downloaded_samples"]
         ):
             out.append("**Detected Downloaded Samples**: ")
             for i in response_json["detected_downloaded_samples"]:
-                out.append(f"\t - **SHA256**: {i['sha256']}")
-                out.append(f"\t - **Scan Date**: {i['scan_date']}")
-                out.append(f"\t - **Positives**: {i['positives']}/{i['total']}")
+                out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
+                out.append(
+                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
+                )
+                out.append(
+                    f"\t - **Positives**: {i['positives']}/{i['total']}"
+                    if "positives" in i
+                    else ""
+                )
+        if (
+            "detected_communicating_samples" in response_json
+            and response_json["detected_communicating_samples"]
+        ):
+            out.append("**Detected Communicating Samples**: ")
+            for i in response_json["detected_communicating_samples"]:
+                out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
+                out.append(
+                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
+                )
+                out.append(
+                    f"\t - **Positives**: {i['positives']}/{i['total']}"
+                    if "positives" in i
+                    else ""
+                )
+        if (
+            "detected_referrer_samples" in response_json
+            and response_json["detected_referrer_samples"]
+        ):
+            out.append("**Detected Referrer Samples**: ")
+            for i in response_json["detected_referrer_samples"]:
+                out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
+                out.append(
+                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
+                )
+                out.append(
+                    f"\t - **Positives**: {i['positives']}/{i['total']}"
+                    if "positives" in i
+                    else ""
+                )
     out.append(
         f"More information at https://www.virustotal.com/gui/ip-address/{ip}/detection"
     )
     return out
+
+
+def virustotal_v3_ip_lookup(ip, response_json, response_status_code):
+    if response_status_code == 200:
+        out = [f"VirusTotal v3 Data for {ip}"]
+        out.append(f"**ASN**: {response_json['data']['attributes']['asn']}")
+        out.append(f"**Country**: {response_json['data']['attributes']['country']}")
+
+        if "data" in response_json and "attributes" in response_json["data"]:
+            if "reputation" in response_json["data"]["attributes"]:
+                out.append(
+                    f"**Reputation**: {response_json['data']['attributes']['reputation']}"
+                )
+            if "total_votes" in response_json["data"]["attributes"]:
+                out.append(
+                    f"**Total Votes**: {response_json['data']['attributes']['total_votes']['harmless']} harmless, {response_json['data']['attributes']['total_votes']['malicious']} malicious"
+                )
+            if "whois" in response_json["data"]["attributes"]:
+                # crop whois before 'comment' if any, and before 180 characters
+                whois = response_json["data"]["attributes"]["whois"]
+                if "comment" in whois:
+                    whois = whois[: whois.index("comment")]
+                if len(whois) > 180:
+                    whois = whois[:180] + "..."
+                out.append(f"**Whois**: {whois}")
+
+            if "last_analysis_stats" in response_json["data"]["attributes"]:
+                out.append(f"**Last Analysis Stats**: ")
+                for i in response_json["data"]["attributes"]["last_analysis_stats"]:
+                    if (
+                        response_json["data"]["attributes"]["last_analysis_stats"][i]
+                        != 0
+                    ):
+                        out.append(
+                            f"\t - **{i}**: {response_json['data']['attributes']['last_analysis_stats'][i]}"
+                        )
+
+            if "last_analysis_results" in response_json["data"]["attributes"]:
+                out.append(f"**Last Analysis Results**: ")
+                for i in response_json["data"]["attributes"]["last_analysis_results"]:
+                    if (
+                        response_json["data"]["attributes"]["last_analysis_results"][i][
+                            "category"
+                        ]
+                        != "harmless"
+                        and response_json["data"]["attributes"][
+                            "last_analysis_results"
+                        ][i]["category"]
+                        != "undetected"
+                    ):
+                        out.append(
+                            f"\t - **{i}**: {response_json['data']['attributes']['last_analysis_results'][i]['category']}"
+                        )
+        out.append(
+            f"More information at https://www.virustotal.com/gui/ip-address/{ip}/detection"
+        )
+        return out
 
 
 def threatbook_io(ip, response_json, response_status_code):
@@ -339,11 +438,21 @@ def check_ip_reputation(ip):
     ipdata = []
     abuseipdb_ti = []
     ibmxforce_ti = []
-    virustotal_ti = []
+    virustotal_v2_ti = []
     threatbook_ti = []
     otx_av = []
     gn = []
     raw = {}
+
+    # virustotal_v2
+    url = "https://www.virustotal.com/vtapi/v2/ip-address/report"
+    params = {"apikey": virustotal_api_key, "ip": ip}
+
+    response = requests.get(url=url, params=params)
+    response_json = json.loads(response.text)
+    raw["virustotal_v2"] = response_json.copy()
+    virustotal_v2_ti = virustotal_v2_ip_lookup(ip, response_json, response.status_code)
+
     # Check IP against IP blocklist
     response = requests.get(
         "https://neutrinoapi.net/ip-blocklist",
@@ -448,15 +557,6 @@ def check_ip_reputation(ip):
     raw["abuseipdb"] = abuseipdb_info.copy()
     abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
 
-    # virustotal
-    url = "https://www.virustotal.com/vtapi/v2/ip-address/report"
-    params = {"apikey": virustotal_api_key, "ip": ip}
-
-    response = requests.get(url=url, params=params)
-    response_json = json.loads(response.text)
-    raw["virustotal"] = response_json.copy()
-    virustotal_ti = virustotal_ip_lookup(ip, response_json, response.status_code)
-
     # threatbook
     url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
 
@@ -495,6 +595,15 @@ def check_ip_reputation(ip):
     # we want to remove duplicates
     tags = list(set(tags))
     otx_av.append(", ".join(tags))
+
+    # virustotal_v3
+    url = "https://www.virustotal.com/api/v3/ip_addresses/" + ip
+    headers = {"x-apikey": virustotal_api_key}
+    response = requests.get(url=url, headers=headers)
+    response_json = json.loads(response.text)
+    raw["virustotal_v3"] = response_json.copy()
+    virustotal_v3_ti = virustotal_v3_ip_lookup(ip, response_json, response.status_code)
+
     return [
         ip_blocklist_neut,
         dns_blocklist_neut,
@@ -502,7 +611,8 @@ def check_ip_reputation(ip):
         gn,
         ipdata,
         abuseipdb_ti,
-        virustotal_ti,
+        virustotal_v2_ti,
+        virustotal_v3_ti,
         threatbook_ti,
         ibmxforce_ti,
         otx_av,
