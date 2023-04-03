@@ -68,7 +68,7 @@ def is_admin(user_id):
 
 
 def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
-    out = [f"VirusTotal v2 Data for {ip}"]
+    out = [f"**VirusTotal v2 Data for {ip}**"]
     if response_status_code == 200:
         out.append("**Verbose Message**: " + response_json["verbose_msg"])
         out.append(f"**ASN**: {response_json['as_owner']} AS{response_json['asn']}")
@@ -91,14 +91,13 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
             out.append("**Detected Downloaded Samples**: ")
             for i in response_json["detected_downloaded_samples"]:
                 out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
-                out.append(
-                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
-                )
+                out.append(f"\t - **Scan Date**: {i['date']}" if "date" in i else "")
                 out.append(
                     f"\t - **Positives**: {i['positives']}/{i['total']}"
                     if "positives" in i
                     else ""
                 )
+                out.append("-------")
         if (
             "detected_communicating_samples" in response_json
             and response_json["detected_communicating_samples"]
@@ -106,14 +105,13 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
             out.append("**Detected Communicating Samples**: ")
             for i in response_json["detected_communicating_samples"]:
                 out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
-                out.append(
-                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
-                )
+                out.append(f"\t - **Scan Date**: {i['date']}" if "date" in i else "")
                 out.append(
                     f"\t - **Positives**: {i['positives']}/{i['total']}"
                     if "positives" in i
                     else ""
                 )
+                out.append("`-------`")
         if (
             "detected_referrer_samples" in response_json
             and response_json["detected_referrer_samples"]
@@ -121,14 +119,13 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
             out.append("**Detected Referrer Samples**: ")
             for i in response_json["detected_referrer_samples"]:
                 out.append(f"\t - **SHA256**: {i['sha256']}" if "sha256" in i else "")
-                out.append(
-                    f"\t - **Scan Date**: {i['scan_date']}" if "scan_date" in i else ""
-                )
+                out.append(f"\t - **Scan Date**: {i['date']}" if "date" in i else "")
                 out.append(
                     f"\t - **Positives**: {i['positives']}/{i['total']}"
                     if "positives" in i
                     else ""
                 )
+                out.append("`-------`")
     out.append(
         f"More information at https://www.virustotal.com/gui/ip-address/{ip}/detection"
     )
@@ -137,7 +134,7 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
 
 def virustotal_v3_ip_lookup(ip, response_json, response_status_code):
     if response_status_code == 200:
-        out = [f"VirusTotal v3 Data for {ip}"]
+        out = [f"**VirusTotal v3 Data for {ip}**"]
         out.append(f"**ASN**: {response_json['data']['attributes']['asn']}")
         out.append(f"**Country**: {response_json['data']['attributes']['country']}")
 
@@ -686,11 +683,14 @@ def handle_message(client, message):
                 message.reply_text("Message too long, sending a file:")
                 # generating uuid
                 uuid_string = str(uuid.uuid4())
-                with open(f"output{uuid_string}.txt", "w") as f:
+                # we get the first word of the first line of the message. remove asterkisk if any and lower the word.
+                first_word = i[0].split(" ")[0].replace("*", "").lower()
+                filename = f"{first_word}_{ip}-{uuid_string}.txt"
+                with open(filename, "w") as f:
                     f.write("\n".join(i))
-                message.reply_document(f"output{uuid_string}.txt")
-                if os.path.exists(f"output{uuid_string}.txt"):
-                    os.remove(f"output{uuid_string}.txt")
+                message.reply_document(filename)
+                if os.path.exists(filename):
+                    os.remove(filename)
             time.sleep(0.5)
         # sending raw data
         # generating uuid for raw data
