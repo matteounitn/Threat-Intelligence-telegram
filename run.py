@@ -190,7 +190,7 @@ def virustotal_v3_ip_lookup(ip, response_json, response_status_code):
 
 
 def threatbook_io(ip, response_json, response_status_code):
-    out = [f"ThreadBook.io Data for {ip}"]
+    out = [f"ThreatBook.io Data for {ip}"]
     if response_status_code == 200:
         judgm = "\n\t - ".join(response_json["data"]["summary"]["judgments"])
         out.append(
