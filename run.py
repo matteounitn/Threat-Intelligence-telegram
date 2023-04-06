@@ -71,7 +71,7 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
     out = [f"**VirusTotal v2 Data for {ip}**"]
     if response_status_code == 200:
         out.append("**Verbose Message**: " + response_json["verbose_msg"])
-        out.append(f"**ASN**: {response_json['as_owner']} AS{response_json['asn']}")
+        out.append(f"**ASN**: {response_json.get('as_owner', 'N/A')} AS{response_json['asn']}")
         out.append("**Detected URLs**: ")
         if "detected_urls" in response_json and response_json["detected_urls"]:
             for i in response_json["detected_urls"]:
