@@ -3,7 +3,7 @@
         "api-key":"YOURAPIKEY"
     },
     "alien_vault":{
-        "api_key":"YOURAPIKEY"
+        "api-key":"YOURAPIKEY"
     },
     "greynoise":{
         "api-key":"YOURAPIKEY"
