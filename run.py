@@ -71,7 +71,9 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
     out = [f"**VirusTotal v2 Data for {ip}**"]
     if response_status_code == 200:
         out.append("**Verbose Message**: " + response_json["verbose_msg"])
-        out.append(f"**ASN**: {response_json.get('as_owner','N/A')} AS{response_json.get('asn',' N/A')}")
+        out.append(
+            f"**ASN**: {response_json.get('as_owner','N/A')} AS{response_json.get('asn',' N/A')}"
+        )
         out.append("**Detected URLs**: ")
         if "detected_urls" in response_json and response_json["detected_urls"]:
             for i in response_json["detected_urls"]:
@@ -135,10 +137,14 @@ def virustotal_v2_ip_lookup(ip, response_json, response_status_code):
 def virustotal_v3_ip_lookup(ip, response_json, response_status_code):
     if response_status_code == 200:
         out = [f"**VirusTotal v3 Data for {ip}**"]
-        out.append(f"**ASN**: {response_json['data']['attributes']['asn']}")
-        out.append(f"**Country**: {response_json['data']['attributes']['country']}")
 
         if "data" in response_json and "attributes" in response_json["data"]:
+            if "asn" in response_json["data"]["attributes"]:
+                out.append(f"**ASN**: {response_json['data']['attributes']['asn']}")
+            if "country" in response_json["data"]["attributes"]:
+                out.append(
+                    f"**Country**: {response_json['data']['attributes']['country']}"
+                )
             if "reputation" in response_json["data"]["attributes"]:
                 out.append(
                     f"**Reputation**: {response_json['data']['attributes']['reputation']}"
