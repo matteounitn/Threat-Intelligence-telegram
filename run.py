@@ -406,11 +406,52 @@ def ip_data_co(ip, response_json, response_status):
     return out
 
 
+def threat_fox(ip, response_json, response_status):
+    out = []
+    out.append(f"**abuse.ch ThreatFox TI for {ip}:**")
+    if (
+        response_status == 200
+        and "query_status" in response_json
+        and response_json["query_status"] == "ok"
+    ):
+        for data in response_json["data"]:
+            if "threat_type_desc" in data and data["threat_type_desc"]:
+                out.append(f"**Threat Type**: {data['threat_type_desc']}")
+            if "ioc_type_desc" in data and data["ioc_type_desc"]:
+                out.append(f"**IOC Value**: {data['ioc_type_desc']}")
+            if "malware_printable" in data and data["malware_printable"]:
+                out.append(f"**Malware**: {data['malware_printable']}")
+            if "confidence_level" in data and data["confidence_level"]:
+                out.append(f"**Confidence Level**: {data['confidence_level']}")
+            if "first_seen" in data and data["first_seen"]:
+                out.append(f"**First Seen**: {data['first_seen']}")
+            if "last_seen" in data and data["last_seen"]:
+                out.append(f"**Last Seen**: {data['last_seen']}")
+            if "reporter" in data and data["reporter"]:
+                out.append(f"**Reporter**: {data['reporter']}")
+            if "tags" in data and data["tags"]:
+                tags = ", ".join(list(data["tags"]))
+                out.append(f"**Tags**: {tags}")
+
+            # We add malware sample if exists
+            if "malware_samples" in data and data["malware_samples"]:
+                out.append(f"**Malware Samples**:")
+                for sample in data["malware_samples"]:
+                    out.append(f"\t**MD5**: {sample.get('md5_hash', 'None')}")
+                    out.append(f"\t**SHA256**: {sample.get('sha256_hash', 'None')}")
+                    out.append(
+                        f"\t**Malware Bazaar**: {sample.get('malware_bazaar', 'None')}"
+                    )
+    else:
+        out.append("No data found.\nCheck RAW output for more information.")
+    return out
+
+
 # greynoise
 def greynoise(ip, response_json, response_status):
     out = []
+    out.append(f"**GreyNoise TI for {ip}:**")
     if response_status == 200:
-        out.append(f"**GreyNoise TI for {ip}:**")
         # Extract the required information from the JSON response
         noise = response_json["noise"] if "noise" in response_json else "None"
         riot = response_json["riot"] if "riot" in response_json else "None"
@@ -456,6 +497,7 @@ def check_ip_reputation(ip):
     ibmxforce_ti = []
     virustotal_v2_ti = []
     threatbook_ti = []
+    threat_fox_ti = []
     otx_av = []
     gn = []
     raw = {}
@@ -614,6 +656,21 @@ def check_ip_reputation(ip):
     except KeyError as k:
         print(k)
         threatbook_ti = [f"**KeyError**: {k}"]
+
+    # threatfox
+    # example curl -X POST https://threatfox-api.abuse.ch/api/v1/ -d '{ "query": "search_ioc", "search_term": "139.180.203.104" }'
+    url = "https://threatfox-api.abuse.ch/api/v1/"
+    headers = {"Content-Type": "application/json"}
+    data = {"query": "search_ioc", "search_term": ip}
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    response_json = json.loads(response.text)
+    raw["threat_fox"] = response_json.copy()
+    try:
+        threat_fox_ti = threat_fox(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        threat_fox_ti = [f"**KeyError**: {k}"]
+
     # IBM X-Force Exchange
 
     response = requests.get(
@@ -674,6 +731,7 @@ def check_ip_reputation(ip):
         virustotal_v2_ti,
         virustotal_v3_ti,
         threatbook_ti,
+        threat_fox_ti,
         ibmxforce_ti,
         otx_av,
     ], raw
