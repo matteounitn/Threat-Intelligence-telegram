@@ -350,6 +350,7 @@ def ibmxforce(ip, response_json, response_status):
     # we parse the history of the IP
     out = []
     out.append(f"**IBM X-Force TI for {ip}:**")
+    print(response_json)
     if response_status == 200:
         if "cats" in response_json:
             out.append(f"**Categories**: {response_json['cats']}")
@@ -367,6 +368,8 @@ def ibmxforce(ip, response_json, response_status):
                         )
                         out.append("")
                 out.append("")
+        print(out)
+        input()
     return out
 
 
@@ -506,9 +509,19 @@ def check_ip_reputation(ip):
     url = "https://www.virustotal.com/vtapi/v2/ip-address/report"
     params = {"apikey": virustotal_api_key, "ip": ip}
 
-    response = requests.get(url=url, params=params)
-    response_json = json.loads(response.text)
-    raw["virustotal_v2"] = response_json.copy()
+    try:
+        response = requests.get(url=url, params=params)
+        response_json = json.loads(response.text)
+        raw["virustotal_v2"] = response_json.copy()
+
+    except Exception as e:
+        print(e)
+        #we load an empty response
+        response = requests.Response()
+        response.status_code = 500
+        response_json = {}
+        raw["virustotal_v2"] = response_json.copy()
+    
     try:
         virustotal_v2_ti = virustotal_v2_ip_lookup(
             ip, response_json, response.status_code
@@ -540,242 +553,273 @@ def check_ip_reputation(ip):
         ip_blocklist_neut.append(f"**IP address {ip} in IP blocklist:**")
         ip_blocklist_neut.append(f"**Error**: {response.status_code}")
 
-        # Check IP against DNS blocklist
-        response = requests.get(
-            "https://neutrinoapi.net/host-reputation",
-            params={
-                "user-id": neutrino_user_id,
-                "api-key": neutrino_api_key,
-                "host": ip,
-            },
-        )
-        dns_info = json.loads(response.text)
-        if response.status_code == 200:
-            listed_lists = []
-            if "lists" in dns_info and dns_info["lists"]:
-                listed_lists = [
-                    x
-                    for x in dns_info["lists"]
-                    if "is-listed" in x and x["is-listed"] == True
-                ]
-            raw["host-reputation"] = listed_lists.copy()
-            dns_blocklist_neut.append(f"**IP address {ip} in DNS blocklist:**")
-            for i in listed_lists:
-                dns_blocklist_neut.append(
-                    f"\n{i['list-name'] if 'list-name' in i else 'None'}"
-                )
-                try:
-                    dns_blocklist_neut += jsonformat(i, prefix="\t - ")
-                except KeyError as k:
-                    print(k)
-                    dns_blocklist_neut += [f"**KeyError**: {k}"]
-                except Exception as e:
-                    print(e)
-                    dns_blocklist_neut += [f"**Exception**: {e}"]
-        else:  # something went wrong
-            raw["host-reputation"] = dns_info.copy()
-            dns_blocklist_neut.append(f"**IP address {ip} in DNS blocklist:**")
+    # Check IP against DNS blocklist
+    response = requests.get(
+        "https://neutrinoapi.net/host-reputation",
+        params={
+            "user-id": neutrino_user_id,
+            "api-key": neutrino_api_key,
+            "host": ip,
+        },
+    )
+    dns_info = json.loads(response.text)
+    if response.status_code == 200:
+        listed_lists = []
+        if "lists" in dns_info and dns_info["lists"]:
+            listed_lists = [
+                x
+                for x in dns_info["lists"]
+                if "is-listed" in x and x["is-listed"] == True
+            ]
+        raw["host-reputation"] = listed_lists.copy()
+        dns_blocklist_neut.append(f"**IP address {ip} in DNS blocklist:**")
+        for i in listed_lists:
             dns_blocklist_neut.append(
-                f"**Error** {response.status_code}. You have exceeded the daily rate limit."
+                f"\n{i['list-name'] if 'list-name' in i else 'None'}"
             )
-
-        # Check IP against Pulsedive
-        endpoint = "https://pulsedive.com/api/info.php"
-        params = {"indicator": ip, "key": pulsedive_api_key, "pretty": 1}
-
-        # Send the HTTP request and get the response
-        response = requests.get(endpoint, params=params)
-        response_json = response.json()
-        raw["pulsedive"] = response_json.copy()
-
-        pulsedive_ti.append(f"**IP address {ip} in Pulsedive:**")
-        if "error" in response_json:
-            if response_json["error"] == "Indicator not found.":
-                pulsedive_ti.append(f"**IP address {ip} not found in Pulsedive**")
-            elif response_json["error"] == "Invalid API key.":
-                pulsedive_ti.append(f"**Invalid Pulsedive API key**")
-            elif response_json["error"] == "Invalid indicator.":
-                pulsedive_ti.append(f"**Invalid IP address**")
-            elif response_json["error"] == "Rate limit exceeded.":
-                pulsedive_ti.append(f"**Rate limit exceeded**")
-            else:
-                pulsedive_ti.append(f"**Unknown error**")
-                print(response_json)
-            pulsedive_ti.append(f"Try to open the link below to run the analysis:")
-            base64ip = base64.b64encode(ip.encode("utf-8")).decode("utf-8")
-            pulsedive_ti.append(f"https://pulsedive.com/indicator/?ioc={base64ip}")
-        else:
             try:
-                pulsedive_ti += pulsedive_formatter(response_json)
+                dns_blocklist_neut += jsonformat(i, prefix="\t - ")
             except KeyError as k:
                 print(k)
-                pulsedive_ti += [f"**KeyError**: {k}"]
+                dns_blocklist_neut += [f"**KeyError**: {k}"]
             except Exception as e:
                 print(e)
-                pulsedive_ti += [f"**Exception**: {e}"]
-        # check greynoise
-
-        response = requests.get(
-            "https://api.greynoise.io/v3/community/" + ip,
-            params={"key": greynoise_api_key},
+                dns_blocklist_neut += [f"**Exception**: {e}"]
+    else:  # something went wrong
+        raw["host-reputation"] = dns_info.copy()
+        dns_blocklist_neut.append(f"**IP address {ip} in DNS blocklist:**")
+        dns_blocklist_neut.append(
+            f"**Error** {response.status_code}. You have exceeded the daily rate limit."
         )
-        response_json = json.loads(response.text)
-        raw["greynoise"] = response_json.copy()
+
+    # Check IP against Pulsedive
+    endpoint = "https://pulsedive.com/api/info.php"
+    params = {"indicator": ip, "key": pulsedive_api_key, "pretty": 1}
+
+    # Send the HTTP request and get the response
+    response = requests.get(endpoint, params=params)
+    response_json = response.json()
+    raw["pulsedive"] = response_json.copy()
+
+    pulsedive_ti.append(f"**IP address {ip} in Pulsedive:**")
+    if "error" in response_json:
+        if response_json["error"] == "Indicator not found.":
+            pulsedive_ti.append(f"**IP address {ip} not found in Pulsedive**")
+        elif response_json["error"] == "Invalid API key.":
+            pulsedive_ti.append(f"**Invalid Pulsedive API key**")
+        elif response_json["error"] == "Invalid indicator.":
+            pulsedive_ti.append(f"**Invalid IP address**")
+        elif response_json["error"] == "Rate limit exceeded.":
+            pulsedive_ti.append(f"**Rate limit exceeded**")
+        else:
+            pulsedive_ti.append(f"**Unknown error**")
+            print(response_json)
+        pulsedive_ti.append(f"Try to open the link below to run the analysis:")
+        base64ip = base64.b64encode(ip.encode("utf-8")).decode("utf-8")
+        pulsedive_ti.append(f"https://pulsedive.com/indicator/?ioc={base64ip}")
+    else:
         try:
-            gn = greynoise(ip, response_json, response.status_code)
+            pulsedive_ti += pulsedive_formatter(response_json)
         except KeyError as k:
             print(k)
-            gn = [f"**KeyError**: {k}"]
+            pulsedive_ti += [f"**KeyError**: {k}"]
         except Exception as e:
             print(e)
-            gn = [f"**Exception**: {e}"]
+            pulsedive_ti += [f"**Exception**: {e}"]
+    # check greynoise
 
-        # ip reputation ipdata eu-api
-        params = {"api-key": ip_data_co_api_key}
-        response = requests.get(
-            "https://eu-api.ipdata.co/" + ip,
-            params=params,
-        )
-        response_json = json.loads(response.text)
-        raw["ipdata"] = response_json.copy()
-        try:
-            ipdata = ip_data_co(ip, response_json, response.status_code)
-        except KeyError as k:
-            print(k)
-            ipdata = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            ipdata = [f"**Exception**: {e}"]
+    response = requests.get(
+        "https://api.greynoise.io/v3/community/" + ip,
+        params={"key": greynoise_api_key},
+    )
+    response_json = json.loads(response.text)
+    raw["greynoise"] = response_json.copy()
+    try:
+        gn = greynoise(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        gn = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        gn = [f"**Exception**: {e}"]
 
-        # Check IP against AbuseIPDB
-        response = requests.get(
-            "https://api.abuseipdb.com/api/v2/check",
-            params={"ipAddress": ip, "maxAgeInDays": 90, "verbose": True},
-            headers={"Key": abuseipdb_api_key, "Accept": "application/json"},
-        )
-        abuseipdb_info = json.loads(response.text)
-        # for the raw, we want to crop the verbose report part and keep only the first 3 reports
+    # ip reputation ipdata eu-api
+    params = {"api-key": ip_data_co_api_key}
+    response = requests.get(
+        "https://eu-api.ipdata.co/" + ip,
+        params=params,
+    )
+    response_json = json.loads(response.text)
+    raw["ipdata"] = response_json.copy()
+    try:
+        ipdata = ip_data_co(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        ipdata = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        ipdata = [f"**Exception**: {e}"]
 
-        if "reports" in abuseipdb_info:
-            # we crop
-            abuseipdb_info["reports"] = abuseipdb_info["reports"][:3]
-        raw["abuseipdb"] = abuseipdb_info.copy()
-        try:
-            abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
-        except KeyError as k:
-            print(k)
-            abuseipdb_ti = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            abuseipdb_ti = [f"**Exception**: {e}"]
-        # threatbook
-        url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
+    # Check IP against AbuseIPDB
+    response = requests.get(
+        "https://api.abuseipdb.com/api/v2/check",
+        params={"ipAddress": ip, "maxAgeInDays": 90, "verbose": True},
+        headers={"Key": abuseipdb_api_key, "Accept": "application/json"},
+    )
+    abuseipdb_info = json.loads(response.text)
+    # for the raw, we want to crop the verbose report part and keep only the first 3 reports
 
-        headers = {"accept": "application/json"}
+    if "reports" in abuseipdb_info:
+        # we crop
+        abuseipdb_info["reports"] = abuseipdb_info["reports"][:3]
+    raw["abuseipdb"] = abuseipdb_info.copy()
+    try:
+        abuseipdb_ti = abuseipdb(ip, abuseipdb_info, response.status_code)
+    except KeyError as k:
+        print(k)
+        abuseipdb_ti = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        abuseipdb_ti = [f"**Exception**: {e}"]
+    # threatbook
+    url = f"https://api.threatbook.io/v1/community/ip?apikey={threatbook_api_key}&resource={ip}"
 
-        response = requests.get(url, headers=headers)
-        response_json = json.loads(response.text)
-        raw["threatbook"] = response_json.copy()
-        try:
-            threatbook_ti = threatbook_io(ip, response_json, response.status_code)
-        except KeyError as k:
-            print(k)
-            threatbook_ti = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            threatbook_ti = [f"**Exception**: {e}"]
+    headers = {"accept": "application/json"}
 
-        # threatfox
-        # example curl -X POST https://threatfox-api.abuse.ch/api/v1/ -d '{ "query": "search_ioc", "search_term": "139.180.203.104" }'
-        url = "https://threatfox-api.abuse.ch/api/v1/"
-        headers = {"Content-Type": "application/json"}
-        data = {"query": "search_ioc", "search_term": ip}
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        response_json = json.loads(response.text)
-        raw["threat_fox"] = response_json.copy()
-        try:
-            threat_fox_ti = threat_fox(ip, response_json, response.status_code)
-        except KeyError as k:
-            print(k)
-            threat_fox_ti = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            threat_fox_ti = [f"**Exception**: {e}"]
+    response = requests.get(url, headers=headers)
+    response_json = json.loads(response.text)
+    raw["threatbook"] = response_json.copy()
+    try:
+        threatbook_ti = threatbook_io(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        threatbook_ti = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        threatbook_ti = [f"**Exception**: {e}"]
 
-        # IBM X-Force Exchange
+    # threatfox
+    # example curl -X POST https://threatfox-api.abuse.ch/api/v1/ -d '{ "query": "search_ioc", "search_term": "139.180.203.104" }'
+    url = "https://threatfox-api.abuse.ch/api/v1/"
+    headers = {"Content-Type": "application/json"}
+    data = {"query": "search_ioc", "search_term": ip}
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    response_json = json.loads(response.text)
+    raw["threat_fox"] = response_json.copy()
+    try:
+        threat_fox_ti = threat_fox(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        threat_fox_ti = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        threat_fox_ti = [f"**Exception**: {e}"]
 
-        response = requests.get(
-            "https://api.xforce.ibmcloud.com/ipr/" + ip,
-            auth=requests.auth.HTTPBasicAuth(
-                ibm_xforce_api_key, ibm_xforce_api_password
-            ),
-        )
-        response_json = json.loads(response.text)
-        raw["ibm_xforce"] = response_json.copy()
-        try:
-            ibmxforce_ti = ibmxforce(ip, response_json, response.status_code)
-        except KeyError as k:
-            print(k)
-            ibmxforce_ti = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            ibmxforce_ti = [f"**Exception**: {e}"]
-        # Check OTX Alienvault Tags for this IP
-        headers = {"X-OTX-API-KEY": alien_vault_api_key}
-        response = requests.get(
-            f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general",
-            headers=headers,
-        )
-        tags = []
-        try:
-            otx_info = json.loads(response.text)
+    # IBM X-Force Exchange
 
-            tags = [
-                tag
-                for pulse in otx_info["pulse_info"]["pulses"]
-                for tag in pulse["tags"]
-            ]
-        except Exception as e:
-            otx_info = {"error": "Error while parsing response"}
-            print(e)
-            print(response.text)
-            tags = ["Error while parsing response"]
-        raw["otx"] = otx_info.copy()
-        otx_av.append("**OTX Alienvault Tags for this IP:**")
-        # we want to remove duplicates
-        tags = list(set(tags))
-        otx_av.append(", ".join(tags))
+    response = requests.get(
+        "https://api.xforce.ibmcloud.com/ipr/" + ip,
+        auth=requests.auth.HTTPBasicAuth(
+            ibm_xforce_api_key, ibm_xforce_api_password
+        ),
+    )
+    response_json = json.loads(response.text)
+    raw["ibm_xforce"] = response_json.copy()
+    try:
+        ibmxforce_ti = ibmxforce(ip, response_json, response.status_code)
+    except KeyError as k:
+        print(k)
+        ibmxforce_ti = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        ibmxforce_ti = [f"**Exception**: {e}"]
+    # Check OTX Alienvault Tags for this IP
+    headers = {"X-OTX-API-KEY": alien_vault_api_key}
+    response = requests.get(
+        f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general",
+        headers=headers,
+    )
+    tags = []
+    try:
+        otx_info = json.loads(response.text)
 
-        # virustotal_v3
-        url = "https://www.virustotal.com/api/v3/ip_addresses/" + ip
-        headers = {"x-apikey": virustotal_api_key}
+        tags = [
+            tag
+            for pulse in otx_info["pulse_info"]["pulses"]
+            for tag in pulse["tags"]
+        ]
+        adversaries = [
+            pulse["adversary"]
+            for pulse in otx_info["pulse_info"]["pulses"]
+            if "adversary" in pulse and pulse["adversary"]
+        ]
+        # Add adversaries from related sections if they exist
+        if "related" in otx_info["pulse_info"]:
+            related = otx_info["pulse_info"]["related"]
+    
+        if "alienvault" in related and "adversary" in related["alienvault"]:
+            adversaries.extend([adv for adv in related["alienvault"]["adversary"] if adv])
+        
+        if "other" in related and "adversary" in related["other"]:
+            adversaries.extend([adv for adv in related["other"]["adversary"] if adv])
+
+
+    except Exception as e:
+        otx_info = {"error": "Error while parsing response"}
+        print(e)
+        print(response.text)
+        tags = ["Error while parsing response"]
+    raw["otx"] = otx_info.copy()
+    otx_av.append("**OTX Alienvault Tags for this IP:**")
+    # we want to remove duplicates
+    tags = list(set(tags))
+    otx_av.append(", ".join(tags))
+    # Add adversary information to output
+    if adversaries:
+        otx_av.append("**Adversary:**")
+        otx_av.append(", ".join(set(adversaries)))  # Using set to remove duplicates
+    else:
+        otx_av.append("**Adversary:** None identified")
+
+
+    # virustotal_v3
+    url = "https://www.virustotal.com/api/v3/ip_addresses/" + ip
+    headers = {"x-apikey": virustotal_api_key}
+    try:
         response = requests.get(url=url, headers=headers)
         response_json = json.loads(response.text)
         raw["virustotal_v3"] = response_json.copy()
-        try:
-            virustotal_v3_ti = virustotal_v3_ip_lookup(
-                ip, response_json, response.status_code
-            )
-        except KeyError as k:
-            print(k)
-            virustotal_v3_ti = [f"**KeyError**: {k}"]
-        except Exception as e:
-            print(e)
-            virustotal_v3_ti = [f"**Exception**: {e}"]
-        return [
-            ip_blocklist_neut,
-            dns_blocklist_neut,
-            pulsedive_ti,
-            gn,
-            ipdata,
-            abuseipdb_ti,
-            virustotal_v2_ti,
-            virustotal_v3_ti,
-            threatbook_ti,
-            threat_fox_ti,
-            ibmxforce_ti,
-            otx_av,
-        ], raw
+    except Exception as e:
+        print(e)
+        #we load an empty response
+        response = requests.Response()
+        response.status_code = 500
+        response_json = {}
+        raw["virustotal_v3"] = response_json.copy()
+    try:
+        virustotal_v3_ti = virustotal_v3_ip_lookup(
+            ip, response_json, response.status_code
+        )
+    except KeyError as k:
+        print(k)
+        virustotal_v3_ti = [f"**KeyError**: {k}"]
+    except Exception as e:
+        print(e)
+        virustotal_v3_ti = [f"**Exception**: {e}"]
+    return [
+        ip_blocklist_neut,
+        dns_blocklist_neut,
+        pulsedive_ti,
+        gn,
+        ipdata,
+        abuseipdb_ti,
+        virustotal_v2_ti,
+        virustotal_v3_ti,
+        threatbook_ti,
+        threat_fox_ti,
+        ibmxforce_ti,
+        otx_av,
+    ], raw
 
     # Initialize the Pyrogram client
 
@@ -838,22 +882,27 @@ def handle_message(client, message):
         )
         output, raw = check_ip_reputation(ip)
         for i in output:
-            try:  # if message too long
-                message.reply_text("\n".join(i), disable_web_page_preview=True)
-            except MessageTooLong as m:
-                print(m)
-                message.reply_text("Message too long, sending a file:")
-                # generating uuid
-                uuid_string = str(uuid.uuid4())
-                # we get the first word of the first line of the message. remove asterkisk if any and lower the word.
-                first_word = i[0].split(" ")[0].replace("*", "").lower()
-                filename = f"{first_word}_{ip}-{uuid_string}.txt"
-                with open(filename, "w") as f:
-                    f.write("\n".join(i))
-                message.reply_document(filename)
-                if os.path.exists(filename):
-                    os.remove(filename)
-            time.sleep(0.5)
+            if i and len(i) > 0:
+                try:  # if message too long
+                    message.reply_text("\n".join(i), disable_web_page_preview=True)
+                except TypeError as t:
+                    print(t) #if typerror, we send the message as it is
+                    message.reply_text(i, disable_web_page_preview=True)
+                except MessageTooLong as m:
+                    print(m)
+                    message.reply_text("Message too long, sending a file:")
+                    # generating uuid
+                    uuid_string = str(uuid.uuid4())
+                    # we get the first word of the first line of the message. remove asterkisk if any and lower the word.
+                    first_word = i[0].split(" ")[0].replace("*", "").lower()
+                    filename = f"{first_word}_{ip}-{uuid_string}.txt"
+                    with open(filename, "w") as f:
+                        f.write("\n".join(i))
+                    message.reply_document(filename)
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                time.sleep(0.5)
+            
         # sending raw data
         # generating uuid for raw data
         uuid_string = str(uuid.uuid4())
